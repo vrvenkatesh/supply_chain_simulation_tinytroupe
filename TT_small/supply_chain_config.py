@@ -16,9 +16,9 @@ Configuration Structure:
 DEFAULT_CONFIG = {
     'simulation': {
         # Monte Carlo parameters based on statistical significance requirements
-        'monte_carlo_iterations': 1000,  # Provides 95% confidence level with 3% margin of error
+        'monte_carlo_iterations': 100,    # VARUN 1000 Provides 95% confidence level with 3% margin of error
         'seed': 42,                      # Fixed seed for reproducibility
-        'simulation_length_weeks': 52,    # One year simulation period
+        'simulation_length_weeks': 52,   # One year simulation period
         'max_steps': 52,                 # Maximum simulation steps (1 year)
         'disruption_types': ['natural', 'political', 'infrastructure']  # Common disruption categories
     },

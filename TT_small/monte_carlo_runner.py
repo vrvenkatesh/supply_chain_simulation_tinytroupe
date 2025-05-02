@@ -257,7 +257,7 @@ class MonteCarloSimulation:
         plt.xticks(rotation=45)
         
         plt.tight_layout()
-        plt.savefig(f'experimental_hypothesis_validation_{self.timestamp}.png')
+        plt.savefig(f'{self.timestamp}_experimental_hypothesis_validation.png')
         plt.close()
         
     def _plot_overall_benefits(self, df_results: pd.DataFrame):
@@ -276,7 +276,7 @@ class MonteCarloSimulation:
         plt.legend()
         
         plt.tight_layout()
-        plt.savefig(f'experimental_overall_benefits_{self.timestamp}.png')
+        plt.savefig(f'{self.timestamp}_experimental_overall_benefits.png')
         plt.close()
         
     def _plot_domain_impact(self, df_results: pd.DataFrame):
@@ -319,8 +319,8 @@ class MonteCarloSimulation:
         # Inventory Health
         plt.subplot(2, 2, 4)
         metrics = ['inventory_health', 'avg_service_level']
-        labels = ['Inventory Health', 'Service Level']
-        sns.boxplot(data=df_results[metrics], labels=labels)
+        df_melted = pd.melt(df_results[metrics])
+        sns.boxplot(data=df_melted, x='variable', y='value')
         plt.title('Inventory Health vs Service Level')
         plt.ylabel('Score')
         plt.xticks(rotation=45)
@@ -379,7 +379,7 @@ class MonteCarloSimulation:
         plt.legend()
         
         plt.tight_layout()
-        plt.savefig(f'experimental_total_time_{self.timestamp}.png')
+        plt.savefig(f'{self.timestamp}_experimental_total_time.png')
         plt.close()
         
 def run_all_scenarios():
@@ -395,14 +395,25 @@ def run_all_scenarios():
     all_results = []
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    # Create output directory
+    output_dir = f'test_results/{timestamp}'
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Run simulations for each scenario
     for scenario_name, config in scenarios.items():
         print(f"\nRunning scenario: {scenario_name}")
         simulation = MonteCarloSimulation(config, scenario_name)
         simulation.run()
+        
+        # Analyze individual scenario results
+        scenario_stats = simulation.analyze_results()
+        print(f"\nScenario {scenario_name} Statistics:")
+        for metric, value in scenario_stats.items():
+            print(f"{metric}: {value:.3f}")
+            
         all_results.extend(simulation.results)
     
-    # Convert results to DataFrame
+    # Convert results to DataFrame for comparative analysis
     df_results = pd.DataFrame(all_results)
     
     # Generate comparative visualizations
@@ -455,7 +466,7 @@ def plot_scenario_comparisons(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/scenario_comparison_{timestamp}.png', bbox_inches='tight')
+    plt.savefig(f'test_results/{timestamp}/scenario_comparison.png', bbox_inches='tight')
     plt.close()
 
 def plot_strategy_effectiveness(df_results: pd.DataFrame, timestamp: str):
@@ -496,7 +507,7 @@ def plot_strategy_effectiveness(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/strategy_effectiveness_{timestamp}.png')
+    plt.savefig(f'test_results/{timestamp}/strategy_effectiveness.png')
     plt.close()
 
 def plot_disruption_impact_analysis(df_results: pd.DataFrame, timestamp: str):
@@ -528,7 +539,7 @@ def plot_disruption_impact_analysis(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/disruption_impact_{timestamp}.png')
+    plt.savefig(f'test_results/{timestamp}/disruption_impact.png')
     plt.close()
 
 def print_scenario_summaries(df_results: pd.DataFrame):
