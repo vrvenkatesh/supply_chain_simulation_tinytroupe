@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Optional, Callable
 from datetime import datetime
 from copy import deepcopy
 
@@ -124,6 +124,7 @@ class MonteCarloSimulation:
         self.agents = {}
         self.scenario_name = scenario_name
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.figures = {}  # Store generated figures
         
     def initialize_agents(self):
         """Initialize supply chain agents"""
@@ -148,11 +149,21 @@ class MonteCarloSimulation:
                 region=region
             )
             
-    def run(self):
-        """Run Monte Carlo simulation"""
-        np.random.seed(self.config['simulation']['seed'])
+    def run(self, progress_callback: Optional[Callable[[int, int], None]] = None) -> pd.DataFrame:
+        """
+        Run Monte Carlo simulation with optional progress reporting
         
-        for iteration in range(self.config['simulation']['monte_carlo_iterations']):
+        Args:
+            progress_callback: Optional callback function(current_iteration, total_iterations)
+                             for progress reporting
+        
+        Returns:
+            pd.DataFrame: Results of all iterations
+        """
+        np.random.seed(self.config['simulation']['seed'])
+        total_iterations = self.config['simulation']['monte_carlo_iterations']
+        
+        for iteration in range(total_iterations):
             # Clear environment and agent registries
             TinyWorld.all_environments.clear()
             TinyPerson.all_agents.clear()
@@ -164,8 +175,16 @@ class MonteCarloSimulation:
             # Run single iteration
             iteration_results = self._run_iteration(world)
             iteration_results['scenario'] = self.scenario_name
+            iteration_results['iteration'] = iteration
             self.results.append(iteration_results)
             
+            # Report progress if callback provided
+            if progress_callback:
+                progress_callback(iteration + 1, total_iterations)
+        
+        # Convert results to DataFrame
+        return pd.DataFrame(self.results)
+    
     def _run_iteration(self, world: SupplyChainWorld) -> Dict[str, float]:
         """Run a single iteration of the simulation"""
         simulation_length = self.config['simulation']['simulation_length_weeks']
@@ -188,8 +207,14 @@ class MonteCarloSimulation:
         # Return metrics summary for this iteration
         return world.get_metrics_summary()
         
-    def analyze_results(self):
-        """Analyze and visualize simulation results"""
+    def analyze_results(self) -> Tuple[Dict[str, float], Dict[str, plt.Figure]]:
+        """
+        Analyze simulation results and generate visualizations
+        
+        Returns:
+            Tuple[Dict[str, float], Dict[str, plt.Figure]]: 
+                (statistics, generated figures)
+        """
         df_results = pd.DataFrame(self.results)
         
         # Calculate aggregate statistics
@@ -198,26 +223,34 @@ class MonteCarloSimulation:
             'std_resilience': df_results['avg_resilience'].std(),
             'avg_cost': df_results['avg_cost_impact'].mean(),
             'std_cost': df_results['avg_cost_impact'].std(),
-            'avg_service': df_results['avg_service_level'].mean(),
-            'std_service': df_results['avg_service_level'].std(),
-            'worst_service': df_results['min_service_level'].min(),
-            'highest_cost': df_results['max_cost_impact'].max(),
-            'avg_roi': df_results['avg_roi'].mean(),
+            'avg_service_level': df_results['avg_service_level'].mean(),
+            'std_service_level': df_results['avg_service_level'].std(),
             'avg_recovery_time': df_results['avg_recovery_time'].mean(),
-            'avg_risk_exposure': df_results['avg_risk_exposure'].mean()
+            'avg_risk_exposure': df_results['avg_risk_exposure'].mean(),
+            'avg_transportation_efficiency': df_results['transportation_efficiency'].mean(),
+            'avg_inventory_health': df_results['inventory_health'].mean(),
+            'avg_roi': df_results['avg_roi'].mean()
         }
         
-        # Generate visualizations
-        self._plot_hypothesis_validation(df_results)
-        self._plot_overall_benefits(df_results)
-        self._plot_domain_impact(df_results)
-        self._plot_total_time_analysis(df_results)
+        # Add region-specific supplier performance metrics
+        region_metrics = {
+            key: value for key, value in df_results.items() 
+            if key.startswith('supplier_performance_')
+        }
+        for region, values in region_metrics.items():
+            stats[f'avg_{region}'] = values.mean()
         
-        return stats
+        # Generate and store figures
+        self.figures['hypothesis_validation'] = self._plot_hypothesis_validation(df_results)
+        self.figures['overall_benefits'] = self._plot_overall_benefits(df_results)
+        self.figures['domain_impact'] = self._plot_domain_impact(df_results)
+        self.figures['total_time'] = self._plot_total_time_analysis(df_results)
         
-    def _plot_hypothesis_validation(self, df_results: pd.DataFrame):
-        """Plot hypothesis validation results"""
-        plt.figure(figsize=(12, 8))
+        return stats, self.figures
+        
+    def _plot_hypothesis_validation(self, df_results: pd.DataFrame) -> plt.Figure:
+        """Generate hypothesis validation plot"""
+        fig = plt.figure(figsize=(12, 8))
         
         # Sub-hypothesis 1: Supplier Diversification
         plt.subplot(2, 2, 1)
@@ -257,12 +290,14 @@ class MonteCarloSimulation:
         plt.xticks(rotation=45)
         
         plt.tight_layout()
-        plt.savefig(f'{self.timestamp}_experimental_hypothesis_validation.png')
+        plt.savefig(f'simulation_results/{self.timestamp}_experimental_hypothesis_validation.png')
         plt.close()
         
-    def _plot_overall_benefits(self, df_results: pd.DataFrame):
-        """Plot overall benefits analysis"""
-        plt.figure(figsize=(10, 6))
+        return fig
+    
+    def _plot_overall_benefits(self, df_results: pd.DataFrame) -> plt.Figure:
+        """Generate overall benefits plot"""
+        fig = plt.figure(figsize=(10, 6))
         
         # ROI Distribution
         sns.histplot(data=df_results, x='avg_roi', bins=30, label='ROI Distribution')
@@ -276,12 +311,14 @@ class MonteCarloSimulation:
         plt.legend()
         
         plt.tight_layout()
-        plt.savefig(f'{self.timestamp}_experimental_overall_benefits.png')
+        plt.savefig(f'simulation_results/{self.timestamp}_experimental_overall_benefits.png')
         plt.close()
         
-    def _plot_domain_impact(self, df_results: pd.DataFrame):
-        """Plot domain-specific impact analysis"""
-        plt.figure(figsize=(15, 10))
+        return fig
+    
+    def _plot_domain_impact(self, df_results: pd.DataFrame) -> plt.Figure:
+        """Generate domain impact plot"""
+        fig = plt.figure(figsize=(15, 10))
         
         # Supplier Performance
         plt.subplot(2, 2, 1)
@@ -326,12 +363,14 @@ class MonteCarloSimulation:
         plt.xticks(rotation=45)
         
         plt.tight_layout()
-        plt.savefig(f'experimental_domain_impact_{self.timestamp}.png')
+        plt.savefig(f'simulation_results/{self.timestamp}_experimental_domain_impact.png')
         plt.close()
         
-    def _plot_total_time_analysis(self, df_results: pd.DataFrame):
-        """Plot time-based analysis"""
-        plt.figure(figsize=(15, 10))
+        return fig
+    
+    def _plot_total_time_analysis(self, df_results: pd.DataFrame) -> plt.Figure:
+        """Generate total time analysis plot"""
+        fig = plt.figure(figsize=(15, 10))
         
         # Recovery Time Distribution
         plt.subplot(2, 2, 1)
@@ -379,9 +418,11 @@ class MonteCarloSimulation:
         plt.legend()
         
         plt.tight_layout()
-        plt.savefig(f'{self.timestamp}_experimental_total_time.png')
+        plt.savefig(f'simulation_results/{self.timestamp}_experimental_total_time.png')
         plt.close()
         
+        return fig
+
 def run_all_scenarios():
     """Run simulations for all scenarios and generate comparative analysis"""
     scenarios = {
@@ -406,7 +447,7 @@ def run_all_scenarios():
         simulation.run()
         
         # Analyze individual scenario results
-        scenario_stats = simulation.analyze_results()
+        scenario_stats, scenario_figures = simulation.analyze_results()
         print(f"\nScenario {scenario_name} Statistics:")
         for metric, value in scenario_stats.items():
             print(f"{metric}: {value:.3f}")

@@ -249,7 +249,7 @@ class SupplyChainSimulation:
         plt.title('Disruption Distribution')
         
         plt.tight_layout()
-        plt.savefig('supply_chain_simulation_results.png')
+        plt.savefig('simulation_results/supply_chain_simulation_results.png')
         
         return metrics
 
