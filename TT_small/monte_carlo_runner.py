@@ -507,7 +507,7 @@ def plot_scenario_comparisons(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/{timestamp}/scenario_comparison.png', bbox_inches='tight')
+    plt.savefig(f'simulation_results/scenario_comparison_{timestamp}.png', bbox_inches='tight')
     plt.close()
 
 def plot_strategy_effectiveness(df_results: pd.DataFrame, timestamp: str):
@@ -548,7 +548,7 @@ def plot_strategy_effectiveness(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/{timestamp}/strategy_effectiveness.png')
+    plt.savefig(f'simulation_results/strategy_effectiveness_{timestamp}.png')
     plt.close()
 
 def plot_disruption_impact_analysis(df_results: pd.DataFrame, timestamp: str):
@@ -580,7 +580,7 @@ def plot_disruption_impact_analysis(df_results: pd.DataFrame, timestamp: str):
     plt.xticks(rotation=45)
     
     plt.tight_layout()
-    plt.savefig(f'test_results/{timestamp}/disruption_impact.png')
+    plt.savefig(f'simulation_results/disruption_impact_{timestamp}.png')
     plt.close()
 
 def print_scenario_summaries(df_results: pd.DataFrame):

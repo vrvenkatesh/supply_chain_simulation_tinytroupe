@@ -8,17 +8,38 @@ resilience simulations using Streamlit.
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 import json
 import os
 from datetime import datetime
+import seaborn as sns
 
-from monte_carlo_runner import MonteCarloSimulation
+from monte_carlo_runner import MonteCarloSimulation, plot_scenario_comparisons, plot_strategy_effectiveness, plot_disruption_impact_analysis
 from scenario_manager import ScenarioManager
 from supply_chain_config import DEFAULT_CONFIG
 
 # Ensure simulation_results directory exists
 os.makedirs('simulation_results', exist_ok=True)
+
+def create_styled_stats_df(all_stats: Dict[str, Dict[str, float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Create two DataFrames - one for values and one for percentage changes"""
+    # Convert stats to DataFrame and round to 3 decimal places
+    df = pd.DataFrame(all_stats).T.round(3)
+    
+    if 'baseline' in df.index:
+        baseline_values = df.loc['baseline']
+        
+        # Calculate percentage changes
+        pct_change = df.copy()
+        for col in df.columns:
+            pct_change[col] = ((df[col] - baseline_values[col]) / baseline_values[col] * 100).round(1)
+        
+        # Keep only non-baseline rows for percentage changes
+        pct_change = pct_change.drop('baseline')
+        
+        return df, pct_change
+    
+    return df, pd.DataFrame()
 
 def main():
     st.set_page_config(page_title="Supply Chain Resilience Simulation", layout="wide")
@@ -27,10 +48,10 @@ def main():
     st.markdown("""
     This application allows you to run supply chain resilience simulations with different scenarios
     and parameters. You can:
-    - Select predefined scenarios or create custom ones
+    - Select multiple scenarios to compare with baseline
     - Adjust simulation parameters
     - Monitor simulation progress
-    - View and analyze results
+    - View comparative analysis and results
     """)
     
     # Sidebar for configuration
@@ -38,13 +59,27 @@ def main():
     
     # Scenario Selection
     available_scenarios = ScenarioManager.get_available_scenarios()
-    selected_scenario = st.sidebar.selectbox(
-        "Select Scenario",
-        list(available_scenarios.keys()),
-        format_func=lambda x: x.replace('_', ' ').title()
-    )
+    disruption_scenarios = {k: v for k, v in available_scenarios.items() if k != 'baseline'}
     
-    st.sidebar.markdown(f"**Description:** {available_scenarios[selected_scenario]}")
+    st.sidebar.markdown("### Scenario Selection")
+    st.sidebar.markdown("**Baseline scenario is always included**")
+    
+    # Store selected scenarios in session state
+    if 'selected_scenarios' not in st.session_state:
+        st.session_state.selected_scenarios = []
+    
+    # Checkboxes for disruption scenarios
+    selected_disruptions = []
+    for scenario in disruption_scenarios.keys():
+        if st.sidebar.checkbox(
+            scenario.replace('_', ' ').title(),
+            help=disruption_scenarios[scenario],
+            key=f"scenario_{scenario}"
+        ):
+            selected_disruptions.append(scenario)
+    
+    # Always include baseline
+    selected_scenarios = ['baseline'] + selected_disruptions
     
     # Parameter Configuration
     st.sidebar.subheader("Parameters")
@@ -92,79 +127,195 @@ def main():
                 key=f"agent_{param}"
             )
             parameter_updates['agent'][param] = value
-        
-        config = ScenarioManager.create_custom_config(selected_scenario, parameter_updates)
-    else:
-        config = ScenarioManager.get_scenario_config(selected_scenario)
     
     # Run Simulation Button
-    if st.sidebar.button("Run Simulation"):
-        run_simulation(config, selected_scenario)
+    if st.sidebar.button("Run Selected Scenarios"):
+        run_multiple_scenarios(selected_scenarios, use_custom_params, parameter_updates if use_custom_params else None)
 
-def run_simulation(config: Dict[str, Any], scenario_name: str):
-    """Run simulation with progress reporting and result visualization"""
+def run_multiple_scenarios(scenarios: List[str], use_custom_params: bool, parameter_updates: Dict = None):
+    """Run multiple scenarios concurrently and compare results"""
     
-    # Create progress bar
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    # Initialize progress tracking
+    progress_container = st.empty()
+    progress_text = st.empty()
+    scenario_progress = {scenario: 0 for scenario in scenarios}
+    total_scenarios = len(scenarios)
     
-    def update_progress(current: int, total: int):
-        """Callback for updating progress bar"""
-        progress = int(100 * current / total)
-        progress_bar.progress(progress)
-        status_text.text(f"Running iteration {current}/{total}")
-    
-    # Initialize and run simulation
-    simulation = MonteCarloSimulation(config, scenario_name)
+    def update_progress(scenario: str, current: int, total: int):
+        """Update progress for a specific scenario"""
+        scenario_progress[scenario] = current / total
+        total_progress = sum(scenario_progress.values()) / total_scenarios
+        progress_container.progress(total_progress)
+        progress_text.text(f"Running {scenario}: {current}/{total} iterations")
     
     try:
-        # Run simulation with progress reporting
-        results_df = simulation.run(progress_callback=update_progress)
+        all_results = []
+        all_stats = {}
+        all_figures = {}
         
-        # Get statistics and figures
-        stats, figures = simulation.analyze_results()
+        # Run each scenario
+        for scenario in scenarios:
+            if use_custom_params:
+                config = ScenarioManager.create_custom_config(scenario, parameter_updates)
+            else:
+                config = ScenarioManager.get_scenario_config(scenario)
+            
+            # Initialize and run simulation
+            simulation = MonteCarloSimulation(config, scenario)
+            results_df = simulation.run(
+                progress_callback=lambda current, total: update_progress(scenario, current, total)
+            )
+            
+            # Get statistics and figures
+            stats, figures = simulation.analyze_results()
+            
+            all_results.append(results_df)
+            all_stats[scenario] = stats
+            all_figures[scenario] = figures
         
-        # Display results
-        st.success("Simulation completed successfully!")
+        # Combine results for comparison
+        combined_results = pd.concat(all_results, ignore_index=True)
         
-        # Statistics
-        st.header("Simulation Results")
-        st.subheader("Summary Statistics")
-        stats_df = pd.DataFrame([stats]).T
-        stats_df.columns = ['Value']
-        st.dataframe(stats_df)
+        # Display comparative results
+        st.success("All simulations completed successfully!")
         
-        # Figures
-        st.subheader("Visualizations")
-        cols = st.columns(2)
+        # Comparative Statistics
+        st.header("Comparative Results")
         
-        # Display figures in a grid
-        for i, (name, fig) in enumerate(figures.items()):
-            with cols[i % 2]:
-                st.markdown(f"**{name.replace('_', ' ').title()}**")
-                st.pyplot(fig)
+        # Create and display styled statistics table
+        st.subheader("Summary Statistics by Scenario")
+        st.markdown("""
+        *Note: Values are shown first, followed by percentage changes from baseline.  
+        For percentage changes: Green indicates improvement, Red indicates degradation.  
+        For cost and risk metrics, lower values are better.*
+        """)
         
-        # Raw Data
-        with st.expander("Raw Data", expanded=False):
-            st.dataframe(results_df)
+        values_df, pct_change_df = create_styled_stats_df(all_stats)
+        
+        # Display values
+        st.markdown("**Actual Values:**")
+        st.dataframe(
+            values_df,
+            use_container_width=True,
+            hide_index=False
+        )
+        
+        # Display percentage changes with styling
+        if not pct_change_df.empty:
+            st.markdown("**Percentage Changes from Baseline:**")
+            
+            # Create the styling
+            def style_pct_changes(val, col_name):
+                is_cost_or_risk = 'cost' in col_name.lower() or 'risk' in col_name.lower()
+                color = ''
+                if is_cost_or_risk:
+                    color = 'green' if val < 0 else 'red' if val > 0 else 'black'
+                else:
+                    color = 'green' if val > 0 else 'red' if val < 0 else 'black'
+                return f"{val:+.1f}%" if val != 0 else "0.0%"
+            
+            # Format the percentage changes
+            formatted_pct = pd.DataFrame(index=pct_change_df.index, columns=pct_change_df.columns)
+            for col in pct_change_df.columns:
+                formatted_pct[col] = pct_change_df[col].apply(lambda x: style_pct_changes(x, col))
+            
+            st.dataframe(
+                formatted_pct,
+                use_container_width=True,
+                hide_index=False
+            )
+        
+        # Comparative Visualizations
+        st.subheader("Scenario Comparisons")
+        
+        # Generate timestamp for saving files
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Create comparative plots
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Core Metrics Comparison**")
+            fig_metrics = plt.figure(figsize=(10, 6))
+            metrics = ['avg_resilience', 'avg_service_level', 'avg_cost_impact']
+            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
+            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
+            plt.title('Core Metrics by Scenario')
+            plt.xticks(rotation=45)
+            st.pyplot(fig_metrics)
+            plt.close()
+            
+            st.markdown("**Risk and Recovery Analysis**")
+            fig_risk = plt.figure(figsize=(10, 6))
+            metrics = ['avg_risk_exposure', 'avg_recovery_time']
+            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
+            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
+            plt.title('Risk and Recovery by Scenario')
+            plt.xticks(rotation=45)
+            st.pyplot(fig_risk)
+            plt.close()
+        
+        with col2:
+            st.markdown("**Performance Metrics**")
+            fig_perf = plt.figure(figsize=(10, 6))
+            metrics = ['transportation_efficiency', 'inventory_health']
+            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
+            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
+            plt.title('Performance Metrics by Scenario')
+            plt.xticks(rotation=45)
+            st.pyplot(fig_perf)
+            plt.close()
+            
+            st.markdown("**Cost vs. Resilience Trade-off**")
+            fig_trade = plt.figure(figsize=(10, 6))
+            for scenario in scenarios:
+                scenario_data = combined_results[combined_results['scenario'] == scenario]
+                plt.scatter(scenario_data['avg_cost_impact'], 
+                          scenario_data['avg_resilience'],
+                          label=scenario, alpha=0.6)
+            plt.title('Cost vs. Resilience Trade-off')
+            plt.xlabel('Cost Impact')
+            plt.ylabel('Resilience Score')
+            plt.legend()
+            st.pyplot(fig_trade)
+            plt.close()
+        
+        # Save comparative plots
+        plt.figure(figsize=(15, 10))
+        plot_scenario_comparisons(combined_results, timestamp)
+        plot_strategy_effectiveness(combined_results, timestamp)
+        plot_disruption_impact_analysis(combined_results, timestamp)
+        
+        # Raw Results (expandable sections for each scenario)
+        st.header("Detailed Results")
+        for scenario in scenarios:
+            scenario_data = combined_results[combined_results['scenario'] == scenario]
+            with st.expander(f"Raw Data - {scenario.replace('_', ' ').title()}", expanded=False):
+                st.dataframe(scenario_data)
         
         # Download buttons
+        st.header("Download Results")
         col1, col2, col3 = st.columns(3)
         
         # Save results to files
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_csv = f"simulation_results/{timestamp}_simulation_results.csv"
-        config_json = f"simulation_results/{timestamp}_simulation_config.json"
+        results_csv = f"simulation_results/{timestamp}_comparative_results.csv"
+        config_json = f"simulation_results/{timestamp}_simulation_configs.json"
         
         # Save files
-        results_df.to_csv(results_csv, index=False)
+        combined_results.to_csv(results_csv, index=False)
+        
+        # Save all configurations
+        configs = {
+            scenario: ScenarioManager.get_scenario_config(scenario)
+            for scenario in scenarios
+        }
         with open(config_json, 'w') as f:
-            json.dump(config, f, indent=2)
+            json.dump(configs, f, indent=2)
         
         with col1:
             with open(results_csv, 'rb') as f:
                 st.download_button(
-                    "Download Results CSV",
+                    "Download Combined Results CSV",
                     f,
                     results_csv.split('/')[-1],
                     "text/csv"
@@ -172,7 +323,7 @@ def run_simulation(config: Dict[str, Any], scenario_name: str):
         with col2:
             with open(config_json, 'rb') as f:
                 st.download_button(
-                    "Download Configuration JSON",
+                    "Download All Configurations JSON",
                     f,
                     config_json.split('/')[-1],
                     "application/json"
@@ -184,7 +335,7 @@ def run_simulation(config: Dict[str, Any], scenario_name: str):
             """)
     
     except Exception as e:
-        st.error(f"Error running simulation: {str(e)}")
+        st.error(f"Error running simulations: {str(e)}")
         raise e
 
 if __name__ == "__main__":
