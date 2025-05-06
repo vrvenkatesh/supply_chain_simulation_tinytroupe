@@ -1,4 +1,4 @@
-TT_small/simulation_results/
-TT_small/test_results/
+simulation_results/*
+test_results/*
 
 .env
