@@ -1,0 +1,6 @@
+numpy>=1.21.0
+pandas>=1.3.0
+matplotlib>=3.4.0 
+seaborn>=0.11.0
+streamlit>=1.22.0
+tinytroupe>=1.0.0  # If this is a custom package, you may need to install it separately 

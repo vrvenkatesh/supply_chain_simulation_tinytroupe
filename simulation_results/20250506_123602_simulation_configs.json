@@ -1,0 +1,182 @@
+{
+  "baseline": {
+    "simulation": {
+      "monte_carlo_iterations": 100,
+      "seed": 42,
+      "simulation_length_weeks": 52,
+      "max_steps": 52,
+      "disruption_types": [
+        "natural",
+        "political",
+        "infrastructure"
+      ]
+    },
+    "initial_inventory": 1000,
+    "target_inventory": 1200,
+    "base_holding_cost": 0.2,
+    "coo": {
+      "decision_making_speed": 0.8,
+      "risk_tolerance": 0.6,
+      "strategic_vision": 0.9,
+      "leadership_effectiveness": 0.85,
+      "communication_clarity": 0.8
+    },
+    "regional_manager": {
+      "local_market_knowledge": 0.85,
+      "operational_efficiency": 0.75,
+      "team_management": 0.8,
+      "risk_assessment": 0.7,
+      "supplier_relationship": 0.8
+    },
+    "supplier": {
+      "production_capacity": 0.7,
+      "quality_consistency": 0.8,
+      "delivery_reliability": 0.75,
+      "cost_efficiency": 0.7,
+      "innovation_capability": 0.6
+    },
+    "regions": {
+      "North_America": {
+        "political_stability": 0.8,
+        "disaster_probability": 0.1,
+        "labor_cost": 1.0,
+        "infrastructure_quality": 0.9,
+        "market_size": 0.8
+      },
+      "Europe": {
+        "political_stability": 0.7,
+        "disaster_probability": 0.08,
+        "labor_cost": 1.1,
+        "infrastructure_quality": 0.95,
+        "market_size": 0.7
+      },
+      "East_Asia": {
+        "political_stability": 0.6,
+        "disaster_probability": 0.15,
+        "labor_cost": 0.7,
+        "infrastructure_quality": 0.85,
+        "market_size": 0.9
+      }
+    },
+    "resilience_strategies": {
+      "supplier_diversification": {
+        "cost_impact": 0.4,
+        "resilience_impact": 0.6,
+        "implementation_time": 12
+      },
+      "inventory_management": {
+        "cost_impact": 0.3,
+        "resilience_impact": 0.4,
+        "implementation_time": 8
+      },
+      "transportation_flexibility": {
+        "cost_impact": 0.2,
+        "resilience_impact": 0.3,
+        "implementation_time": 6
+      }
+    },
+    "metrics": {
+      "resilience_weights": {
+        "supplier_diversification": 0.4,
+        "inventory_management": 0.3,
+        "transportation_flexibility": 0.3
+      },
+      "cost_weights": {
+        "supplier_diversification": 0.5,
+        "inventory_management": 0.3,
+        "transportation_flexibility": 0.2
+      },
+      "service_level_target": 0.95
+    }
+  },
+  "transportation_disruption": {
+    "simulation": {
+      "monte_carlo_iterations": 100,
+      "seed": 42,
+      "simulation_length_weeks": 52,
+      "max_steps": 52,
+      "disruption_types": [
+        "natural",
+        "political",
+        "infrastructure"
+      ]
+    },
+    "initial_inventory": 1000,
+    "target_inventory": 1200,
+    "base_holding_cost": 0.2,
+    "coo": {
+      "decision_making_speed": 0.8,
+      "risk_tolerance": 0.6,
+      "strategic_vision": 0.9,
+      "leadership_effectiveness": 0.85,
+      "communication_clarity": 0.8
+    },
+    "regional_manager": {
+      "local_market_knowledge": 0.85,
+      "operational_efficiency": 0.75,
+      "team_management": 0.8,
+      "risk_assessment": 0.7,
+      "supplier_relationship": 0.8
+    },
+    "supplier": {
+      "production_capacity": 0.7,
+      "quality_consistency": 0.8,
+      "delivery_reliability": 0.75,
+      "cost_efficiency": 0.7,
+      "innovation_capability": 0.6
+    },
+    "regions": {
+      "North_America": {
+        "political_stability": 0.8,
+        "disaster_probability": 0.1,
+        "labor_cost": 1.0,
+        "infrastructure_quality": 0.63,
+        "market_size": 0.8
+      },
+      "Europe": {
+        "political_stability": 0.7,
+        "disaster_probability": 0.08,
+        "labor_cost": 1.1,
+        "infrastructure_quality": 0.6649999999999999,
+        "market_size": 0.7
+      },
+      "East_Asia": {
+        "political_stability": 0.6,
+        "disaster_probability": 0.15,
+        "labor_cost": 0.7,
+        "infrastructure_quality": 0.595,
+        "market_size": 0.9
+      }
+    },
+    "resilience_strategies": {
+      "supplier_diversification": {
+        "cost_impact": 0.4,
+        "resilience_impact": 0.6,
+        "implementation_time": 12
+      },
+      "inventory_management": {
+        "cost_impact": 0.3,
+        "resilience_impact": 0.4,
+        "implementation_time": 8
+      },
+      "transportation_flexibility": {
+        "cost_impact": 0.2,
+        "resilience_impact": 0.3,
+        "implementation_time": 6
+      }
+    },
+    "metrics": {
+      "resilience_weights": {
+        "supplier_diversification": 0.4,
+        "inventory_management": 0.3,
+        "transportation_flexibility": 0.3
+      },
+      "cost_weights": {
+        "supplier_diversification": 0.5,
+        "inventory_management": 0.3,
+        "transportation_flexibility": 0.2
+      },
+      "service_level_target": 0.95
+    }
+  }
+}
