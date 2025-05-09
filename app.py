@@ -353,6 +353,65 @@ def run_multiple_scenarios(scenarios: List[str], use_custom_scenario: bool, para
 st.set_page_config(page_title="Supply Chain Resilience Simulation", layout="wide")
 
 st.title("Supply Chain Resilience Simulation")
+
+# Add Metrics Guide Panel
+with st.expander("📊 Metrics Guide - Click to learn about each metric"):
+    st.markdown("""
+    ### Core Metrics
+    
+    #### 🛡️ Resilience Score (0-1)
+    A measure of overall supply chain robustness combining:
+    - Recovery capability (40%): Speed of disruption recovery
+    - Risk mitigation (30%): Effectiveness of preventive measures
+    - Operational stability (30%): Day-to-day performance consistency
+    
+    #### 💰 Cost Impact (0-1)
+    Measures financial implications combining:
+    - Disruption costs: Severity-weighted impact of active disruptions
+    - Strategy costs: Weighted sum of resilience strategy investments
+        - Supplier diversification (40%)
+        - Inventory management (30%)
+        - Transportation flexibility (20%)
+    
+    #### 📦 Service Level (0-1)
+    Measures ability to meet customer demand, affected by:
+    - Base service level (98% industry standard)
+    - Disruption impacts
+    - Regional performance
+    - Inventory health
+    
+    #### ⏱️ Recovery Time (weeks)
+    Time to return to normal operations after disruptions:
+    - Base recovery: 10 weeks per severity unit
+    - Adjusted by strategy effectiveness:
+        - Supplier diversification (30%)
+        - Inventory management (40%)
+        - Transportation flexibility (30%)
+    
+    #### ⚠️ Risk Exposure (0-1)
+    Current threat level to operations combining:
+    - Base risk: Regional disaster probability and infrastructure quality
+    - Current disruption impact
+    - Economic risk based on GDP volatility
+    
+    #### 📈 ROI (Return on Investment)
+    Measures effectiveness of resilience investments:
+    - Benefits: Potential loss prevention from resilience strategies
+    - Costs: Investment in resilience strategies
+    
+    #### 🚛 Transportation Efficiency (0-1)
+    Network performance based on:
+    - Infrastructure quality
+    - Disruption impacts
+    - Route optimization capabilities
+    
+    #### 📊 Inventory Health (0-1)
+    Dynamic measure combining:
+    - Stock score (40%): Based on service level
+    - Holding cost score (30%): Derived from cost impact
+    - Matching score (30%): Based on resilience and risk exposure
+    """)
+
 st.markdown("""
 This application allows you to run supply chain resilience simulations with different scenarios
 and parameters. You can:

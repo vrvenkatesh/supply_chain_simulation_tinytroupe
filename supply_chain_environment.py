@@ -347,24 +347,36 @@ class SupplyChainWorld(TinyWorld):
         
     def _calculate_inventory_health(self, state: Dict[str, Any]) -> float:
         """
-        Calculate inventory health score based on current stock levels and demand
+        Calculate inventory health based on service level, cost impact, and resilience
         
-        Args:
-            state: Current simulation state
-            
+        The metric is now dynamically derived from other core metrics:
+        - Stock score: Based on service level (indicates stock adequacy)
+        - Holding cost score: Derived from cost impact (reflects cost efficiency)
+        - Matching score: Combination of resilience and risk exposure (indicates demand matching capability)
+        
         Returns:
             float: Inventory health score (0-1)
         """
-        # Calculate based on stock levels and holding costs directly
-        stock_score = min(1.0, state['current_inventory'] / state['target_inventory'])
-        holding_cost_score = 1 - (state['holding_cost'] * 0.3)
-        matching_score = 1 - state['demand_volatility']
+        # Stock score based on service level
+        # Service level directly reflects our ability to meet demand with current stock
+        stock_score = state.get('service_level', 0.9)
         
-        # Weighted average of components
+        # Holding cost score derived from cost impact
+        # Lower cost impact means better holding cost management
+        holding_cost_score = 1 - min(1.0, self._calculate_cost_impact(state))
+        
+        # Matching score based on resilience and risk
+        # Higher resilience and lower risk exposure indicate better demand matching
+        matching_score = (
+            self._calculate_resilience_score(state) * 0.6 +  # Resilience has higher weight
+            (1 - self._calculate_risk_exposure(state)) * 0.4  # Risk exposure has lower weight
+        )
+        
+        # Weighted combination of all components
         inventory_health = (
-            0.4 * stock_score +
-            0.3 * holding_cost_score +
-            0.3 * matching_score
+            0.4 * stock_score +          # Stock adequacy is most important
+            0.3 * holding_cost_score +   # Cost efficiency
+            0.3 * matching_score         # Demand matching capability
         )
         
         return max(0.0, min(1.0, inventory_health))
