@@ -78,22 +78,155 @@ def run_multiple_scenarios(scenarios: List[str], use_custom_scenario: bool, para
         
         values_df, pct_change_df = create_styled_stats_df(all_stats)
         
+        # Function to convert DataFrame to styled HTML table
+        def df_to_html_table(df, is_percentage=False):
+            # Function to format header text
+            def format_header(header):
+                if header == 'baseline':
+                    return 'Baseline'
+                # Split by underscore and capitalize each word
+                return ' '.join(word.capitalize() for word in header.split('_'))
+            
+            # Function to format metric names
+            def format_metric(metric):
+                # Special cases for specific metrics
+                metric_mapping = {
+                    'avg_resilience': 'Resilience',
+                    'std_resilience': 'Resilience Std',
+                    'avg_cost': 'Cost',
+                    'std_cost': 'Cost Std',
+                    'avg_service_level': 'Service Level',
+                    'std_service_level': 'Service Level Std',
+                    'avg_recovery_time': 'Recovery Time (weeks)',
+                    'avg_risk_exposure': 'Risk Exposure',
+                    'avg_transportation_efficiency': 'Transportation Efficiency',
+                    'avg_inventory_health': 'Inventory Health',
+                    'avg_roi': 'ROI',
+                    'avg_supplier_performance_North_America': 'Supplier Performance - North America',
+                    'avg_supplier_performance_Europe': 'Supplier Performance - Europe',
+                    'avg_supplier_performance_East_Asia': 'Supplier Performance - East Asia'
+                }
+                return metric_mapping.get(metric, ' '.join(word.capitalize() for word in metric.split('_')))
+
+            # Function to determine if a change is positive (True) or negative (False)
+            def is_positive_change(metric, value):
+                # Metrics where an increase is negative
+                negative_increase_metrics = {
+                    'cost', 'recovery_time', 'risk_exposure'
+                }
+                
+                # Extract base metric name without avg/std prefix
+                base_metric = metric.replace('avg_', '').replace('std_', '')
+                
+                # For metrics where increase is negative, invert the logic
+                if any(neg_metric in base_metric for neg_metric in negative_increase_metrics):
+                    return value < 0
+                # For all other metrics, increase is positive
+                return value > 0
+
+            html = """
+            <style>
+                table.stats-table {
+                    width: fit-content;  /* Table will size to content rather than 100% */
+                    min-width: 100%;     /* But ensure it still fills available space if needed */
+                    table-layout: fixed;
+                    border-collapse: collapse;
+                    margin: 10px 0;
+                }
+                .stats-table th, .stats-table td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                    overflow-wrap: break-word;
+                    width: 250px;  /* Fixed width for all columns */
+                }
+                .stats-table th {
+                    background-color: #f5f5f5;
+                    color: #333;
+                    font-weight: bold;
+                    border: 1px solid #ddd;
+                    padding: 12px 8px;
+                    height: 50px;
+                }
+                .stats-table td {
+                    border: 1px solid #ddd;
+                }
+                .stats-table td.positive {
+                    color: #28a745;
+                }
+                .stats-table td.negative {
+                    color: #dc3545;
+                }
+                /* All columns same width, all content centered */
+                .stats-table th:first-child,
+                .stats-table td:first-child {
+                    width: 250px;
+                    text-align: center;
+                }
+            </style>
+            """
+            
+            html += '<table class="stats-table">'
+            
+            # Add header
+            html += "<tr>"
+            html += "<th>Metric</th>"  # Header for index column
+            for col in df.columns:
+                html += f"<th>{format_header(col)}</th>"
+            html += "</tr>"
+            
+            # Process and combine mean/std rows
+            processed_rows = {}
+            for idx, row in df.iterrows():
+                metric_base = idx.replace('avg_', '').replace('std_', '')
+                if idx.startswith('avg_'):
+                    if metric_base not in processed_rows:
+                        processed_rows[metric_base] = {'mean': row, 'std': None}
+                elif idx.startswith('std_'):
+                    if metric_base in processed_rows:
+                        processed_rows[metric_base]['std'] = row
+            
+            # Add rows
+            for metric_base, values in processed_rows.items():
+                if values['std'] is not None:
+                    html += "<tr>"
+                    # First column (metric name)
+                    html += f"<td>{format_metric('avg_' + metric_base)}</td>"
+                    # Data columns
+                    for mean, std in zip(values['mean'], values['std']):
+                        if is_percentage:
+                            formatted_val = f"{mean:+.1f}%"  # Removed ± for percentage table
+                            css_class = 'positive' if is_positive_change(metric_base, mean) else 'negative'
+                            html += f"<td class='{css_class}'>{formatted_val}</td>"
+                        else:
+                            formatted_val = f"{mean:.3f} ± {std:.3f}"
+                            html += f"<td>{formatted_val}</td>"
+                    html += "</tr>"
+                else:
+                    # Handle metrics without std deviation
+                    html += "<tr>"
+                    html += f"<td>{format_metric('avg_' + metric_base)}</td>"
+                    for val in values['mean']:
+                        if is_percentage:
+                            formatted_val = f"{val:+.1f}%"  # Removed ± for percentage table
+                            css_class = 'positive' if is_positive_change(metric_base, val) else 'negative'
+                            html += f"<td class='{css_class}'>{formatted_val}</td>"
+                        else:
+                            formatted_val = f"{val:.3f}"
+                            html += f"<td>{formatted_val}</td>"
+                    html += "</tr>"
+            
+            html += "</table>"
+            return html
+        
         # Display values
         st.markdown("**Actual Values:**")
-        st.dataframe(
-            values_df,
-            use_container_width=True,
-            hide_index=False
-        )
+        st.markdown(df_to_html_table(values_df), unsafe_allow_html=True)
         
         # Display percentage changes
         if not pct_change_df.empty:
             st.markdown("**Percentage Changes from Baseline:**")
-            st.dataframe(
-                pct_change_df.round(1).applymap(lambda x: f"{x:+.1f}%" if x != 0 else "0.0%"),
-                use_container_width=True,
-                hide_index=False
-            )
+            st.markdown(df_to_html_table(pct_change_df, is_percentage=True), unsafe_allow_html=True)
         
         # Comparative Visualizations
         st.subheader("Scenario Comparisons")
@@ -101,54 +234,60 @@ def run_multiple_scenarios(scenarios: List[str], use_custom_scenario: bool, para
         # Generate timestamp for saving files
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Create comparative plots
-        col1, col2 = st.columns(2)
+        # Core Metrics Comparison with horizontal subplots
+        st.markdown("**Core Metrics Comparison**")
+        fig_metrics, axes = plt.subplots(1, 3, figsize=(20, 6))
+        metrics = ['avg_resilience', 'avg_service_level', 'avg_cost_impact']
+        for idx, metric in enumerate(metrics):
+            sns.boxplot(data=combined_results, x='scenario', y=metric, ax=axes[idx])
+            axes[idx].set_title(metric.replace('avg_', '').replace('_', ' ').title(), pad=20)
+            axes[idx].tick_params(axis='x', rotation=45)
+            axes[idx].set_xlabel('')
+        plt.tight_layout()
+        st.pyplot(fig_metrics)
+        plt.close()
         
-        with col1:
-            st.markdown("**Core Metrics Comparison**")
-            fig_metrics = plt.figure(figsize=(10, 6))
-            metrics = ['avg_resilience', 'avg_service_level', 'avg_cost_impact']
-            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
-            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
-            plt.title('Core Metrics by Scenario')
-            plt.xticks(rotation=45)
-            st.pyplot(fig_metrics)
-            plt.close()
-            
-            st.markdown("**Risk and Recovery Analysis**")
-            fig_risk = plt.figure(figsize=(10, 6))
-            metrics = ['avg_risk_exposure', 'avg_recovery_time']
-            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
-            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
-            plt.title('Risk and Recovery by Scenario')
-            plt.xticks(rotation=45)
-            st.pyplot(fig_risk)
-            plt.close()
+        # Risk and Recovery Analysis with horizontal subplots
+        st.markdown("**Risk and Recovery Analysis**")
+        fig_risk, axes = plt.subplots(1, 2, figsize=(20, 6))
+        metrics = ['avg_risk_exposure', 'avg_recovery_time']
+        for idx, metric in enumerate(metrics):
+            sns.boxplot(data=combined_results, x='scenario', y=metric, ax=axes[idx])
+            axes[idx].set_title(metric.replace('avg_', '').replace('_', ' ').title(), pad=20)
+            axes[idx].tick_params(axis='x', rotation=45)
+            axes[idx].set_xlabel('')
+        plt.tight_layout()
+        st.pyplot(fig_risk)
+        plt.close()
         
-        with col2:
-            st.markdown("**Performance Metrics**")
-            fig_perf = plt.figure(figsize=(10, 6))
-            metrics = ['transportation_efficiency', 'inventory_health']
-            df_melted = pd.melt(combined_results, id_vars=['scenario'], value_vars=metrics)
-            sns.boxplot(data=df_melted, x='variable', y='value', hue='scenario')
-            plt.title('Performance Metrics by Scenario')
-            plt.xticks(rotation=45)
-            st.pyplot(fig_perf)
-            plt.close()
-            
-            st.markdown("**Cost vs. Resilience Trade-off**")
-            fig_trade = plt.figure(figsize=(10, 6))
-            for scenario in scenarios:
-                scenario_data = combined_results[combined_results['scenario'] == scenario]
-                plt.scatter(scenario_data['avg_cost_impact'], 
-                          scenario_data['avg_resilience'],
-                          label=scenario, alpha=0.6)
-            plt.title('Cost vs. Resilience Trade-off')
-            plt.xlabel('Cost Impact')
-            plt.ylabel('Resilience Score')
-            plt.legend()
-            st.pyplot(fig_trade)
-            plt.close()
+        # Performance Metrics with horizontal subplots
+        st.markdown("**Performance Metrics**")
+        fig_perf, axes = plt.subplots(1, 2, figsize=(20, 6))
+        metrics = ['transportation_efficiency', 'inventory_health']
+        for idx, metric in enumerate(metrics):
+            sns.boxplot(data=combined_results, x='scenario', y=metric, ax=axes[idx])
+            axes[idx].set_title(metric.replace('_', ' ').title(), pad=20)
+            axes[idx].tick_params(axis='x', rotation=45)
+            axes[idx].set_xlabel('')
+        plt.tight_layout()
+        st.pyplot(fig_perf)
+        plt.close()
+        
+        # Cost vs. Resilience Trade-off
+        st.markdown("**Cost vs. Resilience Trade-off**")
+        fig_trade = plt.figure(figsize=(20, 6))
+        for scenario in scenarios:
+            scenario_data = combined_results[combined_results['scenario'] == scenario]
+            plt.scatter(scenario_data['avg_cost_impact'], 
+                      scenario_data['avg_resilience'],
+                      label=scenario, alpha=0.6, s=100)  # Increased marker size
+        plt.title('Cost vs. Resilience Trade-off', pad=20)
+        plt.xlabel('Cost Impact')
+        plt.ylabel('Resilience Score')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        st.pyplot(fig_trade)
+        plt.close()
         
         # Save comparative plots
         plt.figure(figsize=(15, 10))
