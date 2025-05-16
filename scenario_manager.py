@@ -27,7 +27,8 @@ class ScenarioManager:
             'supplier_disruption': 'Increased probability of supplier failures',
             'transportation_disruption': 'Infrastructure and logistics challenges',
             'production_disruption': 'Manufacturing facility issues',
-            'multi_factor_disruption': 'Combined disruptions testing overall resilience'
+            'multi_factor_disruption': 'Combined disruptions testing overall resilience',
+            'global_tariff_disruption': 'Impact of US-imposed tariffs on China and global trade'
         }
     
     @staticmethod
@@ -64,6 +65,24 @@ class ScenarioManager:
                 region['disaster_probability'] *= 1.8
                 region['infrastructure_quality'] *= 0.8
                 region['production_capacity'] = region.get('production_capacity', 1.0) * 0.7
+
+        elif scenario_name == 'global_tariff_disruption':
+            # East Asia (China) specific impacts
+            config['regions']['East_Asia']['political_stability'] *= 0.8  # Increased trade tensions
+            config['regions']['East_Asia']['labor_cost'] *= 1.3  # 30% cost increase due to tariffs
+            config['regions']['East_Asia']['infrastructure_quality'] *= 0.9  # Customs and border delays
+            config['regions']['East_Asia']['disaster_probability'] *= 1.4  # Higher disruption risk
+            
+            # Global ripple effects
+            for region in config['regions'].values():
+                if region != config['regions']['East_Asia']:
+                    region['labor_cost'] *= 1.1  # 10% global cost increase
+                    region['disaster_probability'] *= 1.2  # Increased global supply chain uncertainty
+                    region['infrastructure_quality'] *= 0.95  # Minor logistics slowdown
+            
+            # Adjust resilience strategy costs due to market complexity
+            config['resilience_strategies']['supplier_diversification']['cost_impact'] *= 1.2
+            config['resilience_strategies']['transportation_flexibility']['cost_impact'] *= 1.15
         
         else:
             raise ValueError(f"Unknown scenario: {scenario_name}")
@@ -84,7 +103,7 @@ class ScenarioManager:
                     'type': 'int',
                     'min': 10,
                     'max': 10000,
-                    'default': 1000,
+                    'default': 100,
                     'description': 'Number of simulation iterations'
                 },
                 'simulation_length_weeks': {
